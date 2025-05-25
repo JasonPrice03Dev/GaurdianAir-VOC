@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GuardianAir Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+    }
+    canvas {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 40px;
+    }
+    h1 {
+      text-align: center;
+    }
+    #airQualityBadge {
+      padding: 10px 20px;
+      border-radius: 10px;
+      color: white;
+      font-weight: bold;
+      font-size: 1.2rem;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    #alarmControl {
+      display: none;
+      margin-bottom: 20px;
+    }
+    #alarmControl button {
+      padding: 10px 20px;
+      background-color: red;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #deactivateButton {
+      background-color: green;
+    }
+    #pollutionHistory {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    #pollutionHistory ul {
+      padding-left: 20px;
+    }
+    #pollutionHistory li {
+      cursor: pointer;
+      margin-bottom: 5px;
+      color: #dc3545;
+    }
+    #pollutionHistory li:hover {
+      text-decoration: underline;
+    }
+    #navControls, #dateFilter {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    #navControls button {
+      padding: 5px 10px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1> GuardianAir Live Dashboard</h1>
+
+  <h2>Air Quality</h2>
+  <div id="airQualityBadge">Loading...</div>
+
+  <div id="alarmControl">
+    <button id="raiseAlarmButton" onclick="triggerAlarm()"> Raise Alarm</button>
+    <button id="deactivateButton" onclick="deactivateAlarm()" style="display: none;">✅ Deactivate Alarm</button>
+  </div>
+
+  <div id="dateFilter">
+    <label for="filterDate"> Filter by Date:</label>
+    <input type="date" id="filterDate" onchange="applyFilters()">
+    <button onclick="resetFilters()">Clear Filter</button>
+  </div>
+
+  <div id="navControls">
+    <button onclick="prevPage()">⬅️ Prev</button>
+    <span id="pageInfo">Page 1</span>
+    <button onclick="nextPage()">➡️ Next</button>
+  </div>
+
+  <div id="pollutionHistory">
+    <h2> Pollution History (Last 5)</h2>
+    <ul id="historyList"></ul>
+  </div>
+
+  <h2>Temperature (°C)</h2>
+  <canvas id="tempChart" width="400" height="150"></canvas>
+
+  <h2>Humidity (%)</h2>
+  <canvas id="humidityChart" width="400" height="150"></canvas>
+
+  <h2>Pressure (hPa)</h2>
+  <canvas id="pressureChart" width="400" height="150"></canvas>
+
+  <script>
+  // Firebase configuration for connecting to Firebase
+  const firebaseConfig = {
+    apiKey: "API Key Here",
+    authDomain: "futtechproj.firebaseapp.com",
+    databaseURL: "https://futtechproj-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "futtechproj",
+    storageBucket: "futtechproj.appspot.com",
+    messagingSenderId: "764141408265",
+    appId: "1:764141408265:web:7cd55952abd0f95d0468d8"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // Data handling variables
+  let fullEntries = [];    
+  let filteredEntries = [];   
+  let currentPage = 0;       
+  const entriesPerPage = 10;   
+
+  // Chart datasets setup
+  const timeLabels = [];
+
+  const tempData = {
+    labels: timeLabels,
+    datasets: [{
+      label: 'Temperature (°C)',
+      borderColor: 'red',
+      backgroundColor: 'rgba(255, 99, 132, 0.2)',
+      data: [],
+      tension: 0.3
+    }]
+  };
+
+  const humidityData = {
+    labels: timeLabels,
+    datasets: [{
+      label: 'Humidity (%)',
+      borderColor: 'blue',
+      backgroundColor: 'rgba(54, 162, 235, 0.2)',
+      data: [],
+      tension: 0.3
+    }]
+  };
+
+  const pressureData = {
+    labels: timeLabels,
+    datasets: [{
+      label: 'Pressure (hPa)',
+      borderColor: 'green',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+      data: [],
+      tension: 0.3
+    }]
+  };
+
+  // Creating Charts
+  const tempChart = new Chart(document.getElementById('tempChart'), { type: 'line', data: tempData });
+  const humidityChart = new Chart(document.getElementById('humidityChart'), { type: 'line', data: humidityData });
+  const pressureChart = new Chart(document.getElementById('pressureChart'), { type: 'line', data: pressureData });
+
+  // Updating air quality UI
+  function updateAirQualityBadge(status) {
+    const badge = document.getElementById('airQualityBadge');
+    const alarmDiv = document.getElementById('alarmControl');
+    if (status === "Clean") {
+      badge.textContent = "✅ Clean Air";
+      badge.style.backgroundColor = "#28a745";
+      alarmDiv.style.display = "none";
+    } else {
+      badge.textContent = "⚠️ Pollution Detected";
+      badge.style.backgroundColor = "#dc3545";
+      alarmDiv.style.display = "block";
+    }
+  }
+
+  // Triggering alarm in Firebase
+  function triggerAlarm() {
+    database.ref('alarm').set({
+      triggered: true,
+      timestamp: new Date().toISOString()
+    });
+    document.getElementById('raiseAlarmButton').style.display = 'none';
+    document.getElementById('deactivateButton').style.display = 'inline-block';
+  }
+
+  // Deactivating alarm in Firebase
+  function deactivateAlarm() {
+    database.ref('alarm').set({
+      triggered: false,
+      timestamp: new Date().toISOString()
+    });
+    document.getElementById('raiseAlarmButton').style.display = 'inline-block';
+    document.getElementById('deactivateButton').style.display = 'none';
+  }
+
+  // Display last 5 pollution times as clickable list
+  function updatePollutionHistory(entries) {
+    const historyList = document.getElementById("historyList");
+    historyList.innerHTML = '';
+    const pollutionEvents = entries.filter(e => e.air_quality === "Pollution Detected").slice(-5).reverse();
+    pollutionEvents.forEach(entry => {
+      const li = document.createElement("li");
+      li.textContent = entry.timestamp;
+      li.onclick = () => scrollToEntry(entry.timestamp);
+      historyList.appendChild(li);
+    });
+  }
+
+  // Show the graph ending with the clicked pollution event (to see what went wrong)
+  function scrollToEntry(timestamp) {
+    const index = filteredEntries.findIndex(e => e.timestamp === timestamp);
+    if (index !== -1) {
+      let newStart = index - (entriesPerPage - 1);
+      if (newStart < 0) newStart = 0;
+      currentPage = Math.floor(newStart / entriesPerPage);
+
+      // Clear existing data
+      timeLabels.length = 0;
+      tempData.datasets[0].data.length = 0;
+      humidityData.datasets[0].data.length = 0;
+      pressureData.datasets[0].data.length = 0;
+
+      // Populate data from start up to clicked point
+      for (let i = newStart; i <= index; i++) {
+        timeLabels.push(filteredEntries[i].timestamp);
+        tempData.datasets[0].data.push(filteredEntries[i].temperature);
+        humidityData.datasets[0].data.push(filteredEntries[i].humidity);
+        pressureData.datasets[0].data.push(filteredEntries[i].pressure);
+      }
+
+      // Refresh charts
+      tempChart.update();
+      humidityChart.update();
+      pressureChart.update();
+
+      document.getElementById('pageInfo').textContent = `Page ${currentPage + 1}`;
+    }
+  }
+
+  // Render current page of data in charts
+  function renderPage() {
+    const start = currentPage * entriesPerPage;
+    const end = start + entriesPerPage;
+    const pageEntries = filteredEntries.slice(start, end);
+
+    timeLabels.length = 0;
+    tempData.datasets[0].data.length = 0;
+    humidityData.datasets[0].data.length = 0;
+    pressureData.datasets[0].data.length = 0;
+
+    pageEntries.forEach(entry => {
+      timeLabels.push(entry.timestamp);
+      tempData.datasets[0].data.push(entry.temperature);
+      humidityData.datasets[0].data.push(entry.humidity);
+      pressureData.datasets[0].data.push(entry.pressure);
+    });
+
+    tempChart.update();
+    humidityChart.update();
+    pressureChart.update();
+
+    document.getElementById('pageInfo').textContent = `Page ${currentPage + 1}`;
+  }
+
+  // Navigate forward through paginated chart data
+  function nextPage() {
+    const maxPage = Math.ceil(filteredEntries.length / entriesPerPage) - 1;
+    if (currentPage < maxPage) {
+      currentPage++;
+      renderPage();
+    }
+  }
+
+  // Navigate backward through paginated chart data
+  function prevPage() {
+    if (currentPage > 0) {
+      currentPage--;
+      renderPage();
+    }
+  }
+
+  // Filter entries by selected date
+  function applyFilters() {
+    const selectedDate = document.getElementById('filterDate').value;
+    if (selectedDate) {
+      filteredEntries = fullEntries.filter(entry => entry.timestamp.startsWith(selectedDate));
+    } else {
+      filteredEntries = [...fullEntries];
+    }
+    currentPage = 0;
+    renderPage();
+    updatePollutionHistory(filteredEntries);
+  }
+
+  // Clear date filters and show all data again
+  function resetFilters() {
+    document.getElementById('filterDate').value = '';
+    filteredEntries = [...fullEntries];
+    currentPage = 0;
+    renderPage();
+    updatePollutionHistory(filteredEntries);
+  }
+
+  // Listen to Firebase for data updates and initialize dashboard
+  database.ref('air_quality_data').limitToLast(200).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    fullEntries = Object.values(data);
+    filteredEntries = [...fullEntries];
+    renderPage();
+    updateAirQualityBadge(fullEntries[fullEntries.length - 1].air_quality);
+    updatePollutionHistory(filteredEntries);
+  });
+</script>
+</body>
+</html>
