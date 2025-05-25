@@ -1,44 +1,60 @@
-Step 1: 
+****"🌬️ GaurdianAir – VOC Detector for Raspberry Pi 5"****
 
-I have attatched the following files to the upload:
+---
 
-- MyProject(Virtual Env)
-- ProjectFiles (Project Code)
-- python (Contains ServiceAccountKey)
+description: |
+  GaurdianAir is a smart **Volatile Organic Compound (VOC) detector** using the **Raspberry Pi 5**, **SenseHat**, and **MQ-135 sensor**.
+  It monitors air quality in real-time and visualizes data through interactive graphs on a sleek dashboard powered by **Flask**.
 
-(WARNING - if you do not download the python and MyProject file it will not run)
+---
 
-(WARNING - This project must be tested on a Raspberry Pi 5 due to virtual environment dependencies)
+overview: |
+  GaurdianAir empowers users to track air quality efficiently, helping identify harmful organic compounds.
+  Designed for Raspberry Pi 5 with SenseHat, it uses sensor data processed with RTIMULib to provide accurate readings.
+  The Flask dashboard displays the data live, making it easy to monitor and analyze VOC levels.
 
-These are all the files needed to run the project so please download all and implement them into your files
+---
 
-Step 2:
+features:
+  - "🌡️ Real-time VOC detection with MQ-135 sensor"
+  - "📊 Interactive Flask dashboard for data visualization"
+  - "🔧 Easy setup with virtual environment support"
+  - "🖥️ Raspberry Pi 5 optimized"
 
-Put these files in a folder, for example I chose my user folder so these are the locations I stored each file (Replace YOUR_USERNAME with your actual Pi username, e.g., k00268716):
+---
 
-- /home/YOUR_USERNAME/MyProject
-- /home/YOUR_USERNAME/Documents/ProjectFiles
-- /home/YOUR_USERNAME/python
+built_with:
+  - "🐍 Python 3"
+  - "🎛️ SenseHat + MQ-135 Sensor"
+  - "🖥️ Flask Web Framework"
+  - "📈 Matplotlib / Plotly (for graphing)"
+  - "🔧 RTIMULib for sensor data"
+  - "🐧 Raspberry Pi OS"
 
-Step 3:
+---
 
-Run the following to activate the virtual environment:
+security_notice: |
+  ⚠️ **Important:**  
+  Sensitive files such as the Firebase **ServiceAccountKey** are **NOT** included in this repository and should **never** be shared publicly.  
+  Users must obtain their own keys and configure them locally to keep the project secure.
 
-- source /home/YOUR_USERNAME/MyProject/my_venv/bin/activate (Replace YOUR_USERNAME with your actual Pi username, e.g., k00268716)
+---
 
-Step 4:
+problems_encountered: |
+  Due to the Raspberry Pi 5’s security limitations with Firebase, direct use of Firebase libraries was unreliable.
+  To mitigate this, the application runs inside a **Python virtual environment** to isolate dependencies and improve stability.  
+  Additionally, the project uses **LGPIO** instead of the default **RPi.GPIO** library because of compatibility and performance issues on the Pi 5.
 
-Run the following to enter the project files while in the virtual environment
+---
 
-- cd /home/YOUR_USERNAME/Documents/ProjectFiles (Replace YOUR_USERNAME with your actual Pi username, e.g., k00268716)
+RTIMU: |
+  ModuleNotFoundError: No module named 'RTIMU' - this may appear as I could not push the RTIMU files to GitHub as it is in itself a GIT repository.
+  This will need to be installed to run the code also. 
 
+---
 
-Step 5:
-
-Run the following code to run the application:
-
-- python webserver.py (Ensure SenseHat is attacthed in order to work)
-
-Step 6:
-
-You may now go to http://localhost:5000/ to view the dashboard
+author:
+  name: "Jason Price"
+  role: "Final Year BSc. (Hons) Internet Systems Development student"
+  location: "Ireland"
+  linkedin: "https://www.linkedin.com/in/jasonpricedev/"
